@@ -1,5 +1,5 @@
-# 🧩 SURF DNS Guard Extension
-> **AI 기반 실시간 보안 필터링 및 대시보드 연동 브라우저 확장 프로그램**
+# 🧩 SURF
+> **AI 기반 실시간 도메인 추론 및 지능형 DNS 차단 솔루션**
 
 [![JavaScript](https://img.shields.io/badge/javascript-%23F7DF1E.svg?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 [![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-blue?style=for-the-badge&logo=google-chrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
