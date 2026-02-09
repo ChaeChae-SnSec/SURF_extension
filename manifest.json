@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "SURF",
+    "version": "1.0",
+    "description": "AI 기반 악성 도메인 차단 및 관리",
+    "permissions": [
+        "webRequest",
+        "tabs",
+        "downloads"
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    },
+    "icons": {
+        "16": "icons/logo.png",
+        "48": "icons/logo.png",
+        "128": "icons/logo128.png"
+    },
+    "action": {
+        "default_icon": {
+            "16": "icons/logo.png",
+            "48": "icons/logo.png",
+            "128": "icons/logo128.png"
+        }
+    }
+}

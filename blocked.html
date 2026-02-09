@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>SURF - Blocked</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-dim: #888888;
+            --accent-blue: #2563eb;
+            --danger: #ef4444;
+            --warning: #f97316;
+            --gray-light: #e5e7eb;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .card {
+            background: var(--card-bg);
+            width: 400px;
+            /* 가로를 살짝 넓혀 텍스트 공간 확보 */
+            padding: 40px 30px;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        /* 게이지 스타일 (이전과 동일) */
+        .gauge-container {
+            position: relative;
+            width: 240px;
+            height: 120px;
+            margin: 0 auto 20px;
+            overflow: hidden;
+        }
+
+        .gauge-bg {
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            border: 25px solid #f0f3f5;
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
+
+        .gauge-fill {
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+
+            background: conic-gradient(var(--color) 0deg,
+                    var(--color) calc(var(--percent) * 1.8deg),
+                    #f0f3f5 0deg);
+
+            transform: rotate(-90deg);
+        }
+
+        .gauge-fill::after {
+            content: "";
+            position: absolute;
+            width: 190px;
+            height: 190px;
+            background: white;
+            border-radius: 50%;
+            top: 25px;
+            left: 25px;
+        }
+
+        .gauge-text {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+        }
+
+        #risk-level {
+            font-size: 28px;
+            font-weight: 800;
+            color: #9ca3af;
+            margin-bottom: -5px;
+        }
+
+        #prob-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--warning);
+        }
+
+        .label {
+            font-size: 12px;
+            color: #99abb9;
+            letter-spacing: 1px;
+            margin-top: 30px;
+            font-weight: bold;
+        }
+
+        .domain {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--accent-blue);
+            margin: 10px 0 30px;
+            word-break: break-all;
+        }
+
+        /* 동의 박스 - 단어 안 잘리게 설정 */
+        .consent-box {
+            background-color: #fff5f5;
+            padding: 20px;
+            border-radius: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .consent-box input[type="checkbox"] {
+            min-width: 20px;
+            min-height: 20px;
+            margin-top: 3px;
+            cursor: pointer;
+        }
+
+        .consent-text {
+            font-size: 13px;
+            color: #cc5c5c;
+            line-height: 1.6;
+            word-break: keep-all;
+            /* 단어 단위 줄바꿈 핵심! */
+            letter-spacing: -0.2px;
+            /* 띄어쓰기 간격 최적화 */
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-action-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-proceed,
+        .btn-perm {
+            flex: 1;
+            padding: 12px 5px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: not-allowed;
+            border: none;
+            background-color: #e5e7eb;
+            color: #9ca3af;
+            transition: all 0.3s ease;
+        }
+
+        .btn-proceed.active {
+            background-color: #ef4444;
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-proceed.active:hover {
+            background-color: #dc2626;
+        }
+
+        .btn-perm.active {
+            background-color: #3b82f6;
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-perm.active:hover {
+            background-color: #2563eb;
+        }
+
+        .report-section {
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .btn-report {
+            background: none;
+            color: var(--text-dim);
+            border: none;
+            font-size: 12px;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .btn-report:hover {
+            background-color: #f9fafb;
+            border-color: #9ca3af;
+        }
+
+        .report-desc {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 6px;
+        }
+
+        .footer {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 10px;
+            word-break: keep-all;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <div class="gauge-container">
+            <div class="gauge-bg"></div>
+            <div id="gauge-fill" class="gauge-fill"></div>
+            <div class="gauge-text">
+                <div id="risk-level">-</div>
+                <div id="prob-value">분석 중...</div>
+            </div>
+        </div>
+
+        <div class="label">BLOCKED DOMAIN</div>
+        <div class="domain" id="domain-name">...</div>
+
+        <div class="consent-box">
+            <input type="checkbox" id="agree-check">
+            <label for="agree-check" class="consent-text">
+                본인은 해당 웹사이트 접속 시 발생할 수 있는 보안 위협 및 피해 가능성을 충분히 숙지하였으며, 이에 따른 모든 책임은 사용자 본인에게 있음을 확인합니다.
+            </label>
+        </div>
+
+        <div class="btn-group">
+            <div class="btn-action-row">
+                <button id="btn-temp" class="btn-proceed" disabled>30분 임시 허용</button>
+                <button id="btn-perm" class="btn-perm" disabled>영구 허용</button>
+            </div>
+
+            <div class="footer">위험 수치가 높을 경우 접속하지 않는 것을 권장합니다.</div>
+
+            <div class="report-section">
+                <button id="btn-report" class="btn-report">🚨 오탐인가요? 신고하기</button>
+                <div class="report-desc">신고 시 보안 분석 팀에 도메인이 전달됩니다.</div>
+            </div>
+        </div>
+
+        <script type="module" src="blocked.js"></script>
+</body>
+
+</html>
