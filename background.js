@@ -1,59 +1,258 @@
 import { CONFIG } from './config.js';
+import { isAllowlisted } from './whitelist.js';
+
+// SURF 확장은 두 가지 방식으로 차단을 잡아낸다.
+//
+//  단독 모드 (PROACTIVE=true)
+//     webNavigation 으로 이동 직전에 도메인을 확보해 서버에 물어본다.
+//     DNS 설정을 건드리지 않으므로 웹스토어에서 설치만 하면 바로 동작한다.
+//
+//  DNS 연동 모드
+//     SURF DNS 가 NXDOMAIN 을 반환하면 webRequest 오류로 잡아낸다.
+//     브라우저 밖 백그라운드 통신까지 막는 것은 이쪽만 할 수 있다.
+//
+// 두 경로 모두 같은 blocked.html 로 끝나므로 사용자가 보는 화면은 동일하다.
+
+const VERDICT_TTL_MS = 30 * 60 * 1000;   // 판정 캐시 유지 시간
+const NEGATIVE_TTL_MS = 6 * 60 * 60 * 1000; // 정상 판정은 더 오래 들고 있는다
+const API_TIMEOUT_MS = 2500;
+const BLOCK_THRESHOLD = 0;               // 서버가 boolean 을 주므로 점수는 표시용
+
+const memCache = new Map();  // 서비스 워커가 살아있는 동안만 쓰는 L1 캐시
+
+// ---------------------------------------------------------------- 유틸
+
+function normalizeDomain(hostname) {
+    const h = hostname.toLowerCase().replace(/\.$/, '');
+    return h.startsWith('www.') ? h.slice(4) : h;
+}
+
+// 검사할 가치가 없는 대상을 걸러낸다.
+// IP 리터럴과 단일 라벨 호스트(localhost, 사내 호스트명)는 DGA 판별 대상이 아니다.
+function extractCheckableDomain(rawUrl) {
+    let url;
+    try {
+        url = new URL(rawUrl);
+    } catch {
+        return null;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+
+    const host = url.hostname;
+    if (!host) return null;
+    if (host === 'localhost') return null;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return null;   // IPv4
+    if (host.includes(':') || host.startsWith('[')) return null; // IPv6
+    if (!host.includes('.')) return null;                     // 단일 라벨
+
+    return normalizeDomain(host);
+}
+
+// ---------------------------------------------------------------- 클라이언트 토큰
+
+// 이 기기를 식별하는 값. Redis 키가 이 토큰으로 묶이므로 허용 상태가
+// 기기 단위로 유지된다. DoH 를 함께 쓰는 기기는 DoH URL 의 ?c= 와 같아야 한다.
+async function getClientToken() {
+    if (CONFIG.CLIENT_TOKEN) return CONFIG.CLIENT_TOKEN;
+
+    const stored = await chrome.storage.local.get('client_token');
+    if (stored.client_token) return stored.client_token;
+
+    const token = crypto.randomUUID();
+    await chrome.storage.local.set({ client_token: token });
+    return token;
+}
+
+// ---------------------------------------------------------------- 캐시
+
+async function getCachedVerdict(domain) {
+    const hit = memCache.get(domain);
+    if (hit && hit.expires > Date.now()) return hit;
+    if (hit) memCache.delete(domain);
+
+    const key = `v:${domain}`;
+    const stored = await chrome.storage.session.get(key);
+    const entry = stored[key];
+    if (entry && entry.expires > Date.now()) {
+        memCache.set(domain, entry);
+        return entry;
+    }
+    return null;
+}
+
+async function setCachedVerdict(domain, blocked, prob) {
+    const entry = {
+        blocked,
+        prob,
+        expires: Date.now() + (blocked ? VERDICT_TTL_MS : NEGATIVE_TTL_MS)
+    };
+    memCache.set(domain, entry);
+    await chrome.storage.session.set({ [`v:${domain}`]: entry });
+}
+
+// ---------------------------------------------------------------- 사용자 허용 상태
+
+// 사용자가 차단 페이지에서 허용을 누르면 서버뿐 아니라 여기에도 기록한다.
+// 이게 없으면 허용 직후 재이동에서 확장이 다시 막아 무한 루프가 된다.
+async function isUserAllowed(domain) {
+    const key = `allow:${domain}`;
+    const stored = await chrome.storage.local.get(key);
+    const until = stored[key];
+    if (until === undefined) return false;
+    if (until === 0) return true;              // 영구 허용
+    if (until > Date.now()) return true;       // 임시 허용 유효
+    await chrome.storage.local.remove(key);    // 만료분 정리
+    return false;
+}
+
+async function recordUserAllow(domain, mode) {
+    const until = mode === 'temp' ? Date.now() + 30 * 60 * 1000 : 0;
+    await chrome.storage.local.set({ [`allow:${domain}`]: until });
+    memCache.delete(domain);
+    await chrome.storage.session.remove(`v:${domain}`);
+}
+
+// ---------------------------------------------------------------- 서버 조회
+
+// 모델 추론. 서버가 죽거나 느리면 통과시킨다(fail-open).
+// 파일럿 중 노트북 서버가 멈췄다고 사용자 브라우징까지 막히면 안 된다.
+async function queryPredict(domain) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    try {
+        const token = await getClientToken();
+        const res = await fetch(
+            `${CONFIG.API_BASE_URL}/predict?domain=${encodeURIComponent(domain)}`,
+            { signal: controller.signal, headers: { 'X-SURF-Client': token } }
+        );
+        if (!res.ok) return null;
+        return await res.json();   // { blocked: bool, prob: number, domain: str }
+    } catch (err) {
+        console.warn('[SURF] predict 실패, 통과 처리:', domain, err.name);
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// DNS 연동 모드에서 쓴다. NXDOMAIN 이 우리 모델 때문인지 확인한다.
+async function queryCheck(domain) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    try {
+        const token = await getClientToken();
+        const res = await fetch(
+            `${CONFIG.API_BASE_URL}/check?domain=${encodeURIComponent(domain)}`,
+            { signal: controller.signal, headers: { 'X-SURF-Client': token } }
+        );
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (err) {
+        console.warn('[SURF] check 실패:', domain, err.name);
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// ---------------------------------------------------------------- 차단 페이지 이동
+
+function goToBlockPage(tabId, domain, prob, source) {
+    if (tabId === undefined || tabId < 0) return;
+    const url = chrome.runtime.getURL(
+        `blocked.html?domain=${encodeURIComponent(domain)}&prob=${prob}&src=${source}`
+    );
+    chrome.tabs.update(tabId, { url }).catch(err => {
+        console.warn('[SURF] 탭 이동 실패:', err.message);
+    });
+}
+
+// ---------------------------------------------------------------- 단독 모드
+
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+    if (!CONFIG.PROACTIVE) return;
+    if (details.frameId !== 0) return;        // 메인 프레임만
+    if (details.tabId < 0) return;
+
+    const domain = extractCheckableDomain(details.url);
+    if (!domain) return;
+    if (isAllowlisted(domain)) return;
+    if (await isUserAllowed(domain)) return;
+
+    const cached = await getCachedVerdict(domain);
+    if (cached) {
+        if (cached.blocked) goToBlockPage(details.tabId, domain, cached.prob, 'cache');
+        return;
+    }
+
+    const verdict = await queryPredict(domain);
+    if (!verdict) return;                      // fail-open
+
+    await setCachedVerdict(domain, verdict.blocked, verdict.prob);
+    if (verdict.blocked) {
+        goToBlockPage(details.tabId, domain, verdict.prob, 'proactive');
+    }
+});
+
+// ---------------------------------------------------------------- DNS 연동 모드
 
 chrome.webRequest.onErrorOccurred.addListener(
     async (details) => {
-        // 메인 프레임 에러만 감지
-        if (details.type === "main_frame" && details.error === "net::ERR_NAME_NOT_RESOLVED") {
-            try {
-                const url = new URL(details.url);
-                const domain = url.hostname;
+        if (details.type !== 'main_frame') return;
+        if (details.error !== 'net::ERR_NAME_NOT_RESOLVED') return;
 
-                // 1. 서버에 확인 요청 (await를 사용하여 결과를 기다림)
-                const response = await fetch(`${CONFIG.API_BASE_URL}/check?domain=${domain}`);
-                const data = await response.json();
+        const domain = extractCheckableDomain(details.url);
+        if (!domain) return;
+        if (await isUserAllowed(domain)) return;
 
-                if (data.result === "surf_blocked") {
-                    // 2. 차단 기록이 확실히 있을 때만 업데이트
-                    chrome.tabs.update(details.tabId, {
-                        url: chrome.runtime.getURL(`blocked.html?domain=${domain}&prob=${data.prob}`)
-                    });
-                }
-            } catch (err) {
-                console.error("SURF Check Error:", err);
-            }
+        // NXDOMAIN 은 두 경로에서 온다. 모델이 막았거나, 정말 없는 도메인이거나.
+        // 서버에 차단 기록이 남아 있을 때만 차단 페이지를 띄운다.
+        const data = await queryCheck(domain);
+        if (data && data.result === 'surf_blocked') {
+            goToBlockPage(details.tabId, domain, data.prob, 'dns');
         }
     },
-    { urls: ["<all_urls>"] }
+    { urls: ['<all_urls>'] }
 );
 
-// --- 파일 다운로드 AI 검사 로직 ---
-chrome.downloads.onCreated.addListener(async (downloadItem) => {
-    // 일단 다운로드를 일시정지시켜서 검사 시간을 확보
-    chrome.downloads.pause(downloadItem.id);
+// ---------------------------------------------------------------- 차단 페이지와의 통신
 
-    const targetUrl = downloadItem.url;
-    console.log("AI 분석 시작 (다운로드):", targetUrl);
-
-    try {
-        // AI 서버에 해당 URL 검사 요청
-        const response = await fetch(`${CONFIG.API_BASE_URL}/check?domain=${new URL(targetUrl).hostname}`);
-        const data = await response.json();
-
-        if (data.result === "surf_blocked") {
-            // 위험 판정 시: 다운로드 취소 및 차단 페이지 이동
-            chrome.downloads.cancel(downloadItem.id);
-            console.log("AI 차단 완료:", targetUrl);
-
-            chrome.tabs.create({
-                url: chrome.runtime.getURL(`blocked.html?domain=${new URL(targetUrl).hostname}&prob=${data.prob}&type=download`)
-            });
-        } else {
-            // 안전 판정 시: 다운로드 재개
-            chrome.downloads.resume(downloadItem.id);
-            console.log("AI 검사 통과 (안전)");
-        }
-    } catch (err) {
-        console.error("AI 검사 중 오류 발생 (기본 허용):", err);
-        chrome.downloads.resume(downloadItem.id);
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg?.type === 'surf-allow') {
+        recordUserAllow(msg.domain, msg.mode).then(() => sendResponse({ ok: true }));
+        return true;   // 비동기 응답
+    }
+    if (msg?.type === 'surf-token') {
+        getClientToken().then(token => sendResponse({ token }));
+        return true;
     }
 });
+
+// ---------------------------------------------------------------- 다운로드 검사 (선택)
+
+// manifest 에 "downloads" 권한이 있고 CONFIG 에서 켰을 때만 붙는다.
+// 웹스토어 v1 은 심사 표면을 줄이려고 꺼둔 상태로 제출한다.
+if (CONFIG.ENABLE_DOWNLOAD_SCAN && chrome.downloads) {
+    chrome.downloads.onCreated.addListener(async (item) => {
+        const domain = extractCheckableDomain(item.url);
+        if (!domain || isAllowlisted(domain)) return;
+
+        chrome.downloads.pause(item.id);
+        const verdict = await queryPredict(domain);
+
+        if (verdict && verdict.blocked) {
+            chrome.downloads.cancel(item.id);
+            chrome.tabs.create({
+                url: chrome.runtime.getURL(
+                    `blocked.html?domain=${encodeURIComponent(domain)}&prob=${verdict.prob}&src=download`
+                )
+            });
+        } else {
+            chrome.downloads.resume(item.id);   // 판정 실패 시에도 통과
+        }
+    });
+}
+
+console.log('[SURF] 백그라운드 시작. 단독 모드:', CONFIG.PROACTIVE);

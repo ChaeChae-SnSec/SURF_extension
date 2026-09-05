@@ -223,6 +223,44 @@
             margin-top: 10px;
             word-break: keep-all;
         }
+
+        .src-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            color: #64748b;
+            background: #f1f5f9;
+            border-radius: 999px;
+            padding: 4px 12px;
+            margin-bottom: 4px;
+        }
+
+        /* alert() 대신 쓰는 인라인 안내. 모달이 뜨면 시연 흐름이 끊긴다. */
+        .status-msg {
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-top: 16px;
+            line-height: 1.5;
+            word-break: keep-all;
+            display: none;
+        }
+
+        .status-msg.show {
+            display: block;
+        }
+
+        .status-msg.ok {
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        .status-msg.err {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
     </style>
 </head>
 
@@ -237,6 +275,7 @@
             </div>
         </div>
 
+        <div class="src-badge" id="src-badge">SURF</div>
         <div class="label">BLOCKED DOMAIN</div>
         <div class="domain" id="domain-name">...</div>
 
@@ -261,7 +300,10 @@
             </div>
         </div>
 
-        <script type="module" src="blocked.js"></script>
+        <div class="status-msg" id="status-msg"></div>
+    </div>
+
+    <script type="module" src="blocked.js"></script>
 </body>
 
 </html>
