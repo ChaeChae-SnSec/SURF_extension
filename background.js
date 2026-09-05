@@ -230,29 +230,4 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 });
 
-// ---------------------------------------------------------------- 다운로드 검사 (선택)
-
-// manifest 에 "downloads" 권한이 있고 CONFIG 에서 켰을 때만 붙는다.
-// 웹스토어 v1 은 심사 표면을 줄이려고 꺼둔 상태로 제출한다.
-if (CONFIG.ENABLE_DOWNLOAD_SCAN && chrome.downloads) {
-    chrome.downloads.onCreated.addListener(async (item) => {
-        const domain = extractCheckableDomain(item.url);
-        if (!domain || isAllowlisted(domain)) return;
-
-        chrome.downloads.pause(item.id);
-        const verdict = await queryPredict(domain);
-
-        if (verdict && verdict.blocked) {
-            chrome.downloads.cancel(item.id);
-            chrome.tabs.create({
-                url: chrome.runtime.getURL(
-                    `blocked.html?domain=${encodeURIComponent(domain)}&prob=${verdict.prob}&src=download`
-                )
-            });
-        } else {
-            chrome.downloads.resume(item.id);   // 판정 실패 시에도 통과
-        }
-    });
-}
-
 console.log('[SURF] 백그라운드 시작. 단독 모드:', CONFIG.PROACTIVE);

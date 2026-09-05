@@ -4,22 +4,30 @@
 <head>
     <meta charset="UTF-8">
     <title>SURF - Blocked</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #f4f7f9;
-            --card-bg: #ffffff;
-            --text-main: #333333;
-            --text-dim: #888888;
-            --accent-blue: #2563eb;
+            --bg-top: #0A1120;
+            --bg-bottom: #060A13;
+            --card-bg: #101828;
+            --card-border: rgba(143, 232, 224, 0.12);
+            --text-main: #eef2f7;
+            --text-dim: #93a0b4;
+            --accent-teal: #8FE8E0;
+            --accent-blue: #2E6FE0;
+            --brand-gradient: linear-gradient(90deg, var(--accent-teal), var(--accent-blue));
             --danger: #ef4444;
             --warning: #f97316;
-            --gray-light: #e5e7eb;
+            --gray-light: #1c2636;
         }
 
         body {
             margin: 0;
-            background-color: var(--bg-color);
-            font-family: 'Pretendard', -apple-system, sans-serif;
+            background: linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+            font-family: 'Poppins', 'Pretendard', -apple-system, sans-serif;
+            color: var(--text-main);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -28,11 +36,12 @@
 
         .card {
             background: var(--card-bg);
+            border: 1px solid var(--card-border);
             width: 400px;
             /* 가로를 살짝 넓혀 텍스트 공간 확보 */
             padding: 40px 30px;
             border-radius: 40px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
             text-align: center;
         }
 
@@ -49,7 +58,7 @@
             position: absolute;
             width: 240px;
             height: 240px;
-            border: 25px solid #f0f3f5;
+            border: 25px solid var(--gray-light);
             border-radius: 50%;
             box-sizing: border-box;
         }
@@ -62,7 +71,7 @@
 
             background: conic-gradient(var(--color) 0deg,
                     var(--color) calc(var(--percent) * 1.8deg),
-                    #f0f3f5 0deg);
+                    var(--gray-light) 0deg);
 
             transform: rotate(-90deg);
         }
@@ -72,7 +81,7 @@
             position: absolute;
             width: 190px;
             height: 190px;
-            background: white;
+            background: var(--card-bg);
             border-radius: 50%;
             top: 25px;
             left: 25px;
@@ -100,7 +109,7 @@
 
         .label {
             font-size: 12px;
-            color: #99abb9;
+            color: var(--text-dim);
             letter-spacing: 1px;
             margin-top: 30px;
             font-weight: bold;
@@ -109,14 +118,17 @@
         .domain {
             font-size: 22px;
             font-weight: 800;
-            color: var(--accent-blue);
+            background: var(--brand-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
             margin: 10px 0 30px;
             word-break: break-all;
         }
 
         /* 동의 박스 - 단어 안 잘리게 설정 */
         .consent-box {
-            background-color: #fff5f5;
+            background-color: rgba(239, 68, 68, 0.08);
             padding: 20px;
             border-radius: 20px;
             display: flex;
@@ -135,7 +147,7 @@
 
         .consent-text {
             font-size: 13px;
-            color: #cc5c5c;
+            color: #e08a8a;
             line-height: 1.6;
             word-break: keep-all;
             /* 단어 단위 줄바꿈 핵심! */
@@ -165,30 +177,31 @@
             font-weight: 600;
             border-radius: 8px;
             cursor: not-allowed;
-            border: none;
-            background-color: #e5e7eb;
-            color: #9ca3af;
+            border: 1px solid transparent;
+            background-color: var(--gray-light);
+            color: #5b6b82;
             transition: all 0.3s ease;
         }
 
         .btn-proceed.active {
-            background-color: #ef4444;
-            color: white;
+            background: var(--brand-gradient);
+            color: #06121a;
             cursor: pointer;
         }
 
         .btn-proceed.active:hover {
-            background-color: #dc2626;
+            filter: brightness(1.08);
         }
 
         .btn-perm.active {
-            background-color: #3b82f6;
-            color: white;
+            background: transparent;
+            border: 1px solid var(--accent-teal);
+            color: var(--accent-teal);
             cursor: pointer;
         }
 
         .btn-perm.active:hover {
-            background-color: #2563eb;
+            background: rgba(143, 232, 224, 0.1);
         }
 
         .report-section {
@@ -207,19 +220,18 @@
         }
 
         .btn-report:hover {
-            background-color: #f9fafb;
-            border-color: #9ca3af;
+            background-color: rgba(255, 255, 255, 0.05);
         }
 
         .report-desc {
             font-size: 11px;
-            color: #9ca3af;
+            color: var(--text-dim);
             margin-top: 6px;
         }
 
         .footer {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-dim);
             margin-top: 10px;
             word-break: keep-all;
         }
@@ -229,8 +241,8 @@
             font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.3px;
-            color: #64748b;
-            background: #f1f5f9;
+            color: var(--accent-teal);
+            background: rgba(143, 232, 224, 0.1);
             border-radius: 999px;
             padding: 4px 12px;
             margin-bottom: 4px;
@@ -253,13 +265,13 @@
         }
 
         .status-msg.ok {
-            background: #ecfdf5;
-            color: #047857;
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
         }
 
         .status-msg.err {
-            background: #fef2f2;
-            color: #b91c1c;
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
         }
     </style>
 </head>

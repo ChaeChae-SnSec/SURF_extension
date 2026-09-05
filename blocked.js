@@ -4,8 +4,7 @@ import { CONFIG } from './config.js';
 const SOURCE_LABEL = {
     proactive: 'AI 실시간 판별',
     cache: 'AI 실시간 판별',
-    dns: 'SURF DNS 차단',
-    download: '다운로드 검사'
+    dns: 'SURF DNS 차단'
 };
 
 // 이 기기의 클라이언트 토큰. 서버는 IP 대신 이 값으로 허용 상태를 묶는다.

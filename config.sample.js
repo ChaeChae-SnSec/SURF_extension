@@ -8,10 +8,6 @@ export const CONFIG = {
     // 발표에서 DNS 계층만으로 차단되는 장면을 보여줄 때는 false 로 끄세요.
     PROACTIVE: true,
 
-    // 다운로드 URL 검사. manifest 에 "downloads" 권한을 추가해야 동작합니다.
-    // 웹스토어 v1 제출에서는 심사 표면을 줄이려고 꺼둡니다.
-    ENABLE_DOWNLOAD_SCAN: false,
-
     // 이 기기를 식별하는 토큰. 비워두면 설치 시 자동 생성됩니다.
     // DoH 를 함께 쓰는 기기는 DoH URL 의 ?c= 값과 반드시 같아야 합니다.
     CLIENT_TOKEN: ""
