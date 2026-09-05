@@ -1,12 +1,13 @@
 {
     "manifest_version": 3,
     "name": "SURF",
-    "version": "1.0",
-    "description": "AI 기반 악성 도메인 차단 및 관리",
+    "version": "1.1.0",
+    "description": "AI가 DGA·악성 도메인을 실시간 판별해 접속을 차단하고, 오탐은 사용자가 직접 되돌릴 수 있는 보안 확장입니다.",
     "permissions": [
         "webRequest",
-        "tabs",
-        "downloads"
+        "webNavigation",
+        "storage",
+        "tabs"
     ],
     "host_permissions": [
         "<all_urls>"
