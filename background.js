@@ -48,6 +48,26 @@ function extractCheckableDomain(rawUrl) {
     return normalizeDomain(host);
 }
 
+// ---------------------------------------------------------------- 켜짐/꺼짐
+
+// 팝업의 토글이 여기 값을 읽고 쓴다. 키가 없으면(첫 설치) 기본값은 켜짐이다.
+async function isExtensionEnabled() {
+    const stored = await chrome.storage.local.get('surf_enabled');
+    return stored.surf_enabled !== false;
+}
+
+async function updateBadge() {
+    const enabled = await isExtensionEnabled();
+    await chrome.action.setBadgeText({ text: enabled ? '' : 'OFF' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#3a4557' });
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && 'surf_enabled' in changes) updateBadge();
+});
+
+updateBadge();
+
 // ---------------------------------------------------------------- 클라이언트 토큰
 
 // 이 기기를 식별하는 값. Redis 키가 이 토큰으로 묶이므로 허용 상태가
@@ -173,6 +193,7 @@ function goToBlockPage(tabId, domain, prob, source) {
 
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     if (!CONFIG.PROACTIVE) return;
+    if (!(await isExtensionEnabled())) return;
     if (details.frameId !== 0) return;        // 메인 프레임만
     if (details.tabId < 0) return;
 
@@ -202,6 +223,7 @@ chrome.webRequest.onErrorOccurred.addListener(
     async (details) => {
         if (details.type !== 'main_frame') return;
         if (details.error !== 'net::ERR_NAME_NOT_RESOLVED') return;
+        if (!(await isExtensionEnabled())) return;
 
         const domain = extractCheckableDomain(details.url);
         if (!domain) return;
@@ -211,7 +233,11 @@ chrome.webRequest.onErrorOccurred.addListener(
         // 서버에 차단 기록이 남아 있을 때만 차단 페이지를 띄운다.
         const data = await queryCheck(domain);
         if (data && data.result === 'surf_blocked') {
-            goToBlockPage(details.tabId, domain, data.prob, 'dns');
+            // source: "predict" 면 이 도메인이 미등록 도메인이라 우연히 NXDOMAIN이
+            // 난 것뿐, 실제로는 단독 모드가 막은 것이다. DNS가 정말 막은 경우만
+            // 'dns' 라벨을 붙인다.
+            const src = data.source === 'predict' ? 'proactive' : 'dns';
+            goToBlockPage(details.tabId, domain, data.prob, src);
         }
     },
     { urls: ['<all_urls>'] }
