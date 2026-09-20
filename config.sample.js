@@ -1,7 +1,6 @@
 // config.sample.js
-// 복사해서 config.js 로 만든 뒤 실제 값을 채워 넣으세요. config.js 는 커밋되지 않습니다.
 export const CONFIG = {
-    // Flask API 주소. 배포 시에는 Cloudflare 터널 도메인(https://api.example.com)을 씁니다.
+    // Flask API 주소.
     API_BASE_URL: "https://YOUR_API_DOMAIN",
 
     // 단독 모드: DNS 설정 없이 확장이 직접 도메인을 검사합니다.

@@ -60,6 +60,23 @@
             padding: 14px 16px;
         }
 
+        .row + .row {
+            margin-top: 10px;
+        }
+
+        .row.sub-setting {
+            opacity: 1;
+            transition: opacity 0.2s ease;
+        }
+
+        .row.sub-setting.disabled {
+            opacity: 0.45;
+        }
+
+        .row.sub-setting .switch input:disabled + .slider {
+            cursor: not-allowed;
+        }
+
         .status {
             flex: 1;
             min-width: 0;
@@ -123,6 +140,38 @@
             background: var(--bg-top);
         }
 
+        /* 모드 선택 (세그먼트 컨트롤) */
+        .segmented {
+            display: flex;
+            background: var(--off-gray);
+            border-radius: 999px;
+            padding: 3px;
+            flex-shrink: 0;
+        }
+
+        .segment {
+            appearance: none;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 10px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .segment.active {
+            background: var(--accent-teal);
+            color: var(--bg-top);
+        }
+
+        .row.sub-setting.disabled .segment {
+            cursor: not-allowed;
+        }
+
         .footer {
             margin-top: 14px;
             font-size: 11px;
@@ -146,6 +195,17 @@
                 <input type="checkbox" id="toggle">
                 <span class="slider"></span>
             </label>
+        </div>
+
+        <div class="row sub-setting" id="proactiveRow">
+            <div class="status">
+                <div class="status-text on" id="proactiveText">모드</div>
+                <div class="status-sub" id="proactiveSub"></div>
+            </div>
+            <div class="segmented" id="modeSegmented">
+                <button type="button" class="segment" id="segProactive" data-proactive="true">단독</button>
+                <button type="button" class="segment" id="segDns" data-proactive="false">DNS</button>
+            </div>
         </div>
 
         <div class="footer">끄면 이 브라우저에서 도메인 검사를 하지 않습니다.</div>

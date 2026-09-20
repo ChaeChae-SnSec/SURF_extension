@@ -14,7 +14,7 @@ import { isAllowlisted } from './whitelist.js';
 // 두 경로 모두 같은 blocked.html 로 끝나므로 사용자가 보는 화면은 동일하다.
 
 const VERDICT_TTL_MS = 30 * 60 * 1000;   // 판정 캐시 유지 시간
-const NEGATIVE_TTL_MS = 6 * 60 * 60 * 1000; // 정상 판정은 더 오래 들고 있는다
+const NEGATIVE_TTL_MS = 6 * 60 * 60 * 1000; // 정상 판정은 더 오래 유지
 const API_TIMEOUT_MS = 2500;
 const BLOCK_THRESHOLD = 0;               // 서버가 boolean 을 주므로 점수는 표시용
 
@@ -27,8 +27,8 @@ function normalizeDomain(hostname) {
     return h.startsWith('www.') ? h.slice(4) : h;
 }
 
-// 검사할 가치가 없는 대상을 걸러낸다.
-// IP 리터럴과 단일 라벨 호스트(localhost, 사내 호스트명)는 DGA 판별 대상이 아니다.
+// 검사할 가치가 없는 대상을 걸러냄
+// IP 리터럴과 단일 라벨 호스트(localhost, 사내 호스트명)는 DGA 판별 대상이 아님
 function extractCheckableDomain(rawUrl) {
     let url;
     try {
@@ -50,10 +50,17 @@ function extractCheckableDomain(rawUrl) {
 
 // ---------------------------------------------------------------- 켜짐/꺼짐
 
-// 팝업의 토글이 여기 값을 읽고 쓴다. 키가 없으면(첫 설치) 기본값은 켜짐이다.
+// 팝업의 토글이 여기 값을 읽어서 사용. 키가 없으면(첫 설치) 기본값은 켜짐.
 async function isExtensionEnabled() {
     const stored = await chrome.storage.local.get('surf_enabled');
     return stored.surf_enabled !== false;
+}
+
+// 단독 모드도 팝업에서 변경 가능. 키가 없으면(첫 설치) config.js 의 PROACTIVE 값을 기본값으로 사용.
+// 배포 시 정해둔 기본 동작은 그대로 유지.
+async function isProactiveEnabled() {
+    const stored = await chrome.storage.local.get('surf_proactive');
+    return stored.surf_proactive !== undefined ? stored.surf_proactive : CONFIG.PROACTIVE;
 }
 
 async function updateBadge() {
@@ -70,8 +77,8 @@ updateBadge();
 
 // ---------------------------------------------------------------- 클라이언트 토큰
 
-// 이 기기를 식별하는 값. Redis 키가 이 토큰으로 묶이므로 허용 상태가
-// 기기 단위로 유지된다. DoH 를 함께 쓰는 기기는 DoH URL 의 ?c= 와 같아야 한다.
+// 이 기기를 식별하는 값. Redis 키가 이 토큰으로 묶이므로 허용 상태가 기기 단위로 유지. 
+// DoH 를 함께 쓰는 기기는 DoH URL 의 ?c= 와 같아야 함.
 async function getClientToken() {
     if (CONFIG.CLIENT_TOKEN) return CONFIG.CLIENT_TOKEN;
 
@@ -112,8 +119,8 @@ async function setCachedVerdict(domain, blocked, prob) {
 
 // ---------------------------------------------------------------- 사용자 허용 상태
 
-// 사용자가 차단 페이지에서 허용을 누르면 서버뿐 아니라 여기에도 기록한다.
-// 이게 없으면 허용 직후 재이동에서 확장이 다시 막아 무한 루프가 된다.
+// 사용자가 차단 페이지에서 허용을 누르면 서버뿐 아니라 여기에도 기록.
+// 이게 없으면 허용 직후 재이동에서 확장이 다시 막아 무한 루프가 됨.
 async function isUserAllowed(domain) {
     const key = `allow:${domain}`;
     const stored = await chrome.storage.local.get(key);
@@ -134,8 +141,7 @@ async function recordUserAllow(domain, mode) {
 
 // ---------------------------------------------------------------- 서버 조회
 
-// 모델 추론. 서버가 죽거나 느리면 통과시킨다(fail-open).
-// 파일럿 중 노트북 서버가 멈췄다고 사용자 브라우징까지 막히면 안 된다.
+// 모델 추론. 서버가 죽거나 느리면 통과시킴(fail-open).
 async function queryPredict(domain) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
@@ -156,7 +162,7 @@ async function queryPredict(domain) {
     }
 }
 
-// DNS 연동 모드에서 쓴다. NXDOMAIN 이 우리 모델 때문인지 확인한다.
+// DNS 연동 모드에서 사용. NXDOMAIN 이 우리 모델 때문인지 확인.
 async function queryCheck(domain) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
@@ -192,8 +198,8 @@ function goToBlockPage(tabId, domain, prob, source) {
 // ---------------------------------------------------------------- 단독 모드
 
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
-    if (!CONFIG.PROACTIVE) return;
     if (!(await isExtensionEnabled())) return;
+    if (!(await isProactiveEnabled())) return;
     if (details.frameId !== 0) return;        // 메인 프레임만
     if (details.tabId < 0) return;
 
@@ -229,8 +235,8 @@ chrome.webRequest.onErrorOccurred.addListener(
         if (!domain) return;
         if (await isUserAllowed(domain)) return;
 
-        // NXDOMAIN 은 두 경로에서 온다. 모델이 막았거나, 정말 없는 도메인이거나.
-        // 서버에 차단 기록이 남아 있을 때만 차단 페이지를 띄운다.
+        // NXDOMAIN 은 두 경로에서 올 수 있음. 모델이 막았거나, 정말 없는 도메인이거나.
+        // 서버에 차단 기록이 남아 있을 때만 차단 페이지로.
         const data = await queryCheck(domain);
         if (data && data.result === 'surf_blocked') {
             // source: "predict" 면 이 도메인이 미등록 도메인이라 우연히 NXDOMAIN이
@@ -254,6 +260,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         getClientToken().then(token => sendResponse({ token }));
         return true;
     }
+    if (msg?.type === 'surf-get-settings') {
+        Promise.all([isExtensionEnabled(), isProactiveEnabled()])
+            .then(([enabled, proactive]) => sendResponse({ enabled, proactive }));
+        return true;
+    }
 });
 
-console.log('[SURF] 백그라운드 시작. 단독 모드:', CONFIG.PROACTIVE);
+isProactiveEnabled().then(p => console.log('[SURF] 백그라운드 시작. 단독 모드:', p));
