@@ -134,13 +134,14 @@ async function isUserAllowed(domain) {
 
 async function recordUserAllow(domain, mode) {
     // once 는 DNS 쪽 응답 캐시로만 지속시간이 결정되고(서버가 기기를 구분
-    // 못 하므로), 로컬 기록은 그냥 재이동 직후 단독 모드가 다시 막지만
-    // 않을 정도로 아주 짧게만 기억한다.
+    // 못 하므로), 로컬 기록은 그 자동 재시도 창이 끝나기 전에 만료되면
+    // 안 된다 - 만료되면 onErrorOccurred 가 재시도 대신 /check 경로로
+    // 새서 헷갈린다.
     let until;
     if (mode === 'temp') {
         until = Date.now() + 30 * 60 * 1000;
     } else if (mode === 'once') {
-        until = Date.now() + 60 * 1000;
+        until = Date.now() + 100 * 1000;
     } else {
         until = 0;   // perm
     }
@@ -235,6 +236,12 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 
 // ---------------------------------------------------------------- DNS 연동 모드
 
+// 자동 재시도를 뺐다. macOS(mDNSResponder)는 실패한 이름을 반복해서
+// 다시 물어보면 다음 허용 시점을 점점 더 뒤로 미루는 백오프를 쓴다
+// (77초→196초→472초→...→약 72분). 우리가 3초마다 계속 찔러본 게
+// "허용" 이후 회복을 오히려 늦추고 있었을 가능성이 높다. 그래서 지금은
+// 아무것도 안 하고 그냥 물러난다 - 사용자가 잠시 뒤 직접 새로고침하면
+// 그때는 재시도 없이 깔끔한 상태에서 다시 시도하는 셈이 된다.
 chrome.webRequest.onErrorOccurred.addListener(
     async (details) => {
         if (details.type !== 'main_frame') return;
@@ -243,6 +250,7 @@ chrome.webRequest.onErrorOccurred.addListener(
 
         const domain = extractCheckableDomain(details.url);
         if (!domain) return;
+
         if (await isUserAllowed(domain)) return;
 
         // NXDOMAIN 은 두 경로에서 올 수 있음. 모델이 막았거나, 정말 없는 도메인이거나.

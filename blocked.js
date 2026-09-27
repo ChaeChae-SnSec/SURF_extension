@@ -175,9 +175,12 @@ window.addEventListener('load', async () => {
             );
         }
 
+        // macOS 등 일부 OS 리졸버는 서버가 준 negative-cache TTL(0)을 무시하고
+        // 자기 나름의 최소 캐싱 시간을 강제한다. 너무 빨리 재이동하면 그
+        // 시간이 안 지나 예전 실패를 그대로 재사용해버리니, 넉넉하게 기다린다.
         setTimeout(() => {
             window.location.href = `https://${domain}`;
-        }, serverOk ? 700 : 2500);
+        }, serverOk ? 3000 : 5000);
     }
 
     btnTemp.onclick = () => sendAllow(modeShort);
