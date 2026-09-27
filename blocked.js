@@ -32,14 +32,20 @@ window.addEventListener('load', async () => {
     document.getElementById('domain-name').innerText = domain;
     document.getElementById('src-badge').innerText = SOURCE_LABEL[source] || 'SURF';
 
-    // DNS 계층이 막은 경우엔 기기별로 구분해서 "영구"를 약속할 방법이 없다
-    // (53 직결 환경은 여러 기기가 같은 주소로 보임). 그래서 이 경로에서는
-    // "영구/30분 임시" 대신 "이번만/약 30분"으로 기대치를 낮춰서 보여준다.
+    // DNS 계층이 막은 경우엔 기기별로 구분해서 지속시간을 약속할 방법이
+    // 없다 (53 직결 환경은 여러 기기가 같은 주소로 보임). "영구/30분 임시"
+    // 대신, 약속할 수 있는 것만 정직하게 보여준다 - 버튼도 "이번만 허용"
+    // 하나만 남긴다.
     const isDns = source === 'dns';
     const modeShort = isDns ? 'once' : 'temp';
-    const modeLong = isDns ? 'dns30' : 'perm';
+    const modeLong = 'perm';
+    const btnPermEl = document.getElementById('btn-perm');
     document.getElementById('btn-temp').textContent = isDns ? '이번만 허용' : '30분 임시 허용';
-    document.getElementById('btn-perm').textContent = isDns ? '30분 허용' : '영구 허용';
+    if (isDns) {
+        btnPermEl.hidden = true;
+    } else {
+        btnPermEl.textContent = '영구 허용';
+    }
 
     const token = await getToken();
     const authHeaders = {
@@ -156,8 +162,7 @@ window.addEventListener('load', async () => {
         const SUCCESS_MSG = {
             temp: `${domain} 을(를) 30분간 허용했습니다. 이동합니다.`,
             perm: `${domain} 을(를) 영구 허용했습니다. 이동합니다.`,
-            once: `${domain} 을(를) 이번 접속만 허용합니다. 이동합니다.`,
-            dns30: `${domain} 을(를) 약 30분간 허용합니다 (기기 캐시에 따라 달라질 수 있어요). 이동합니다.`
+            once: `${domain} 을(를) 이번 접속만 허용합니다. 이동합니다.`
         };
 
         if (serverOk) {
