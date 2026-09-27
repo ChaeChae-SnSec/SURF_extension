@@ -133,7 +133,18 @@ async function isUserAllowed(domain) {
 }
 
 async function recordUserAllow(domain, mode) {
-    const until = mode === 'temp' ? Date.now() + 30 * 60 * 1000 : 0;
+    // dns30 은 DNS 쪽 응답 TTL로만 지속시간이 결정되고(서버가 기기를 구분 못
+    // 하므로), 로컬 기록은 그냥 단독 모드가 재이동 직후 다시 막지만 않게
+    // temp 와 같은 30분으로 맞춘다. once 는 "이번 재이동만" 통과하면 되니
+    // 아주 짧게만 기억한다.
+    let until;
+    if (mode === 'temp' || mode === 'dns30') {
+        until = Date.now() + 30 * 60 * 1000;
+    } else if (mode === 'once') {
+        until = Date.now() + 60 * 1000;
+    } else {
+        until = 0;   // perm
+    }
     await chrome.storage.local.set({ [`allow:${domain}`]: until });
     memCache.delete(domain);
     await chrome.storage.session.remove(`v:${domain}`);

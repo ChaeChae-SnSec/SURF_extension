@@ -32,6 +32,15 @@ window.addEventListener('load', async () => {
     document.getElementById('domain-name').innerText = domain;
     document.getElementById('src-badge').innerText = SOURCE_LABEL[source] || 'SURF';
 
+    // DNS 계층이 막은 경우엔 기기별로 구분해서 "영구"를 약속할 방법이 없다
+    // (53 직결 환경은 여러 기기가 같은 주소로 보임). 그래서 이 경로에서는
+    // "영구/30분 임시" 대신 "이번만/약 30분"으로 기대치를 낮춰서 보여준다.
+    const isDns = source === 'dns';
+    const modeShort = isDns ? 'once' : 'temp';
+    const modeLong = isDns ? 'dns30' : 'perm';
+    document.getElementById('btn-temp').textContent = isDns ? '이번만 허용' : '30분 임시 허용';
+    document.getElementById('btn-perm').textContent = isDns ? '30분 허용' : '영구 허용';
+
     const token = await getToken();
     const authHeaders = {
         'Content-Type': 'application/json',
@@ -144,13 +153,15 @@ window.addEventListener('load', async () => {
             console.error('[SURF] 허용 등록 실패:', err);
         }
 
+        const SUCCESS_MSG = {
+            temp: `${domain} 을(를) 30분간 허용했습니다. 이동합니다.`,
+            perm: `${domain} 을(를) 영구 허용했습니다. 이동합니다.`,
+            once: `${domain} 을(를) 이번 접속만 허용합니다. 이동합니다.`,
+            dns30: `${domain} 을(를) 약 30분간 허용합니다 (기기 캐시에 따라 달라질 수 있어요). 이동합니다.`
+        };
+
         if (serverOk) {
-            showStatus(
-                mode === 'temp'
-                    ? `${domain} 을(를) 30분간 허용했습니다. 이동합니다.`
-                    : `${domain} 을(를) 영구 허용했습니다. 이동합니다.`,
-                'ok'
-            );
+            showStatus(SUCCESS_MSG[mode] || `${domain} 을(를) 허용했습니다. 이동합니다.`, 'ok');
         } else {
             showStatus(
                 '서버에 허용 상태를 등록하지 못했습니다. 이 브라우저에서만 적용되며, ' +
@@ -164,6 +175,6 @@ window.addEventListener('load', async () => {
         }, serverOk ? 700 : 2500);
     }
 
-    btnTemp.onclick = () => sendAllow('temp');
-    btnPerm.onclick = () => sendAllow('perm');
+    btnTemp.onclick = () => sendAllow(modeShort);
+    btnPerm.onclick = () => sendAllow(modeLong);
 });
