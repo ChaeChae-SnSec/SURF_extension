@@ -175,12 +175,13 @@ window.addEventListener('load', async () => {
             );
         }
 
-        // macOS 등 일부 OS 리졸버는 서버가 준 negative-cache TTL(0)을 무시하고
-        // 자기 나름의 최소 캐싱 시간을 강제한다. 너무 빨리 재이동하면 그
-        // 시간이 안 지나 예전 실패를 그대로 재사용해버리니, 넉넉하게 기다린다.
+        // Windows 는 서버가 준 negative-cache TTL(5초)을 거의 그대로 존중한다
+        // (실측 확인). macOS 전용으로 넉넉히 잡았던 지연은 시연(Windows 전용)엔
+        // 불필요하고, 오히려 동시 시연 시 다음 참가자 테스트와 겹칠 여지만
+        // 늘리므로 서버 TTL을 살짝 웃도는 선으로 줄인다.
         setTimeout(() => {
             window.location.href = `https://${domain}`;
-        }, serverOk ? 3000 : 5000);
+        }, serverOk ? 1000 : 2000);
     }
 
     btnTemp.onclick = () => sendAllow(modeShort);

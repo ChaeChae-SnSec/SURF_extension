@@ -21,6 +21,27 @@
             --danger: #ef4444;
             --warning: #f97316;
             --gray-light: #1c2636;
+            --consent-text: #e08a8a;
+            --hover-tint: rgba(255, 255, 255, 0.05);
+            --status-ok: #34d399;
+            --status-err: #f87171;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-top: #eef2f7;
+                --bg-bottom: #e4e9f2;
+                --card-bg: #ffffff;
+                --card-border: rgba(46, 111, 224, 0.15);
+                --text-main: #1a2233;
+                --text-dim: #5b6472;
+                --accent-teal: #0d9488;
+                --gray-light: #e5e9f0;
+                --consent-text: #b3261e;
+                --hover-tint: rgba(0, 0, 0, 0.05);
+                --status-ok: #059669;
+                --status-err: #dc2626;
+            }
         }
 
         body {
@@ -41,7 +62,6 @@
             /* 가로를 살짝 넓혀 텍스트 공간 확보 */
             padding: 40px 30px;
             border-radius: 40px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
             text-align: center;
         }
 
@@ -147,7 +167,7 @@
 
         .consent-text {
             font-size: 13px;
-            color: #e08a8a;
+            color: var(--consent-text);
             line-height: 1.6;
             word-break: keep-all;
             /* 단어 단위 줄바꿈 핵심! */
@@ -220,7 +240,7 @@
         }
 
         .btn-report:hover {
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: var(--hover-tint);
         }
 
         .report-desc {
@@ -266,12 +286,12 @@
 
         .status-msg.ok {
             background: rgba(16, 185, 129, 0.12);
-            color: #34d399;
+            color: var(--status-ok);
         }
 
         .status-msg.err {
             background: rgba(239, 68, 68, 0.12);
-            color: #f87171;
+            color: var(--status-err);
         }
     </style>
 </head>
